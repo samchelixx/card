@@ -1,76 +1,52 @@
 /* ============================================
-   smoke + particles + interactions
+   Interactive engine — cursor, magnetic, parallax,
+   reactive particles, glitch, ripple
    ============================================ */
 (function () {
     'use strict';
 
-    /* ------- SMOKE CANVAS ------- */
-    const smokeCanvas = document.getElementById('smoke');
-    const sCtx = smokeCanvas.getContext('2d');
-    let sW, sH;
+    const isTouch = matchMedia('(hover: none)').matches;
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
 
-    function resizeSmoke() {
-        sW = smokeCanvas.width = window.innerWidth;
-        sH = smokeCanvas.height = window.innerHeight;
+    /* ------- CUSTOM CURSOR ------- */
+    const dot = document.getElementById('cursorDot');
+    const ring = document.getElementById('cursorRing');
+    let ringX = mouseX, ringY = mouseY;
+
+    if (!isTouch && dot && ring) {
+        document.addEventListener('mousemove', e => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            dot.style.left = mouseX + 'px';
+            dot.style.top = mouseY + 'px';
+        });
+
+        (function animateRing() {
+            ringX += (mouseX - ringX) * 0.15;
+            ringY += (mouseY - ringY) * 0.15;
+            ring.style.left = ringX + 'px';
+            ring.style.top = ringY + 'px';
+            requestAnimationFrame(animateRing);
+        })();
+
+        // Hover states for interactive elements
+        const hoverTargets = document.querySelectorAll('.glass-btn, .skill, .badge, .avatar-wrap, .name__text');
+        hoverTargets.forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                dot.classList.add('is-hover');
+                ring.classList.add('is-hover');
+            });
+            el.addEventListener('mouseleave', () => {
+                dot.classList.remove('is-hover');
+                ring.classList.remove('is-hover');
+            });
+        });
+
+        // Click pulse
+        document.addEventListener('mousedown', () => ring.classList.add('is-click'));
+        document.addEventListener('mouseup', () => ring.classList.remove('is-click'));
     }
-
-    class SmokeParticle {
-        constructor() { this.reset(true); }
-        reset(init) {
-            this.x = Math.random() * sW;
-            this.y = init ? Math.random() * sH : sH + 50;
-            this.r = Math.random() * 120 + 60;
-            this.vx = (Math.random() - 0.5) * 0.4;
-            this.vy = -(Math.random() * 0.6 + 0.15);
-            this.opacity = 0;
-            this.maxOpacity = Math.random() * 0.06 + 0.02;
-            this.life = 0;
-            this.maxLife = Math.random() * 500 + 300;
-            const hues = [260, 210, 320, 170];
-            this.hue = hues[Math.floor(Math.random() * hues.length)] + (Math.random() - 0.5) * 30;
-        }
-        update() {
-            this.life++;
-            this.x += this.vx + Math.sin(this.life * 0.008) * 0.3;
-            this.y += this.vy;
-            const progress = this.life / this.maxLife;
-            if (progress < 0.15) {
-                this.opacity = this.maxOpacity * (progress / 0.15);
-            } else if (progress > 0.7) {
-                this.opacity = this.maxOpacity * (1 - (progress - 0.7) / 0.3);
-            } else {
-                this.opacity = this.maxOpacity;
-            }
-            if (this.life >= this.maxLife) this.reset(false);
-        }
-        draw() {
-            const grad = sCtx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r);
-            grad.addColorStop(0, `hsla(${this.hue}, 60%, 50%, ${this.opacity})`);
-            grad.addColorStop(1, `hsla(${this.hue}, 60%, 50%, 0)`);
-            sCtx.fillStyle = grad;
-            sCtx.beginPath();
-            sCtx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-            sCtx.fill();
-        }
-    }
-
-    let smokeParts = [];
-
-    function initSmoke() {
-        smokeParts = [];
-        const count = Math.min(Math.floor((sW * sH) / 18000), 60);
-        for (let i = 0; i < count; i++) smokeParts.push(new SmokeParticle());
-    }
-
-    function animateSmoke() {
-        sCtx.clearRect(0, 0, sW, sH);
-        smokeParts.forEach(p => { p.update(); p.draw(); });
-        requestAnimationFrame(animateSmoke);
-    }
-
-    resizeSmoke();
-    initSmoke();
-    animateSmoke();
 
     /* ------- PARTICLE CANVAS ------- */
     const pCanvas = document.getElementById('particles');
@@ -87,18 +63,37 @@
         init() {
             this.x = Math.random() * pW;
             this.y = Math.random() * pH;
-            this.r = Math.random() * 1.8 + 0.4;
-            this.vx = (Math.random() - 0.5) * 0.25;
-            this.vy = (Math.random() - 0.5) * 0.25;
-            this.baseOpacity = Math.random() * 0.45 + 0.1;
+            this.r = Math.random() * 1.6 + 0.3;
+            this.baseVx = (Math.random() - 0.5) * 0.2;
+            this.baseVy = (Math.random() - 0.5) * 0.2;
+            this.vx = this.baseVx;
+            this.vy = this.baseVy;
+            this.baseOpacity = Math.random() * 0.35 + 0.08;
             this.opacity = this.baseOpacity;
             this.pulse = Math.random() * Math.PI * 2;
         }
         update() {
+            // Mouse repulsion
+            const dx = this.x - mouseX;
+            const dy = this.y - mouseY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const repelRadius = 120;
+
+            if (dist < repelRadius && dist > 0) {
+                const force = (1 - dist / repelRadius) * 1.8;
+                this.vx += (dx / dist) * force;
+                this.vy += (dy / dist) * force;
+            }
+
+            // Friction — return to base velocity
+            this.vx += (this.baseVx - this.vx) * 0.04;
+            this.vy += (this.baseVy - this.vy) * 0.04;
+
             this.x += this.vx;
             this.y += this.vy;
-            this.pulse += 0.015;
-            this.opacity = this.baseOpacity + Math.sin(this.pulse) * 0.15;
+            this.pulse += 0.012;
+            this.opacity = this.baseOpacity + Math.sin(this.pulse) * 0.12;
+
             if (this.x < -5) this.x = pW + 5;
             if (this.x > pW + 5) this.x = -5;
             if (this.y < -5) this.y = pH + 5;
@@ -107,7 +102,7 @@
         draw() {
             pCtx.beginPath();
             pCtx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-            pCtx.fillStyle = `rgba(170, 160, 255, ${this.opacity})`;
+            pCtx.fillStyle = `rgba(160, 148, 255, ${this.opacity})`;
             pCtx.fill();
         }
     }
@@ -116,21 +111,23 @@
 
     function initDots() {
         dots = [];
-        const count = Math.min(Math.floor((pW * pH) / 10000), 140);
+        const count = Math.min(Math.floor((pW * pH) / 12000), 120);
         for (let i = 0; i < count; i++) dots.push(new Dot());
     }
 
     function drawConnections() {
+        const maxDist = 110;
+        const maxDistSq = maxDist * maxDist;
         for (let i = 0; i < dots.length; i++) {
             for (let j = i + 1; j < dots.length; j++) {
                 const dx = dots[i].x - dots[j].x;
                 const dy = dots[i].y - dots[j].y;
                 const d = dx * dx + dy * dy;
-                if (d < 14400) { // 120^2
+                if (d < maxDistSq) {
                     pCtx.beginPath();
                     pCtx.moveTo(dots[i].x, dots[i].y);
                     pCtx.lineTo(dots[j].x, dots[j].y);
-                    pCtx.strokeStyle = `rgba(108, 92, 231, ${0.08 * (1 - Math.sqrt(d) / 120)})`;
+                    pCtx.strokeStyle = `rgba(108, 92, 231, ${0.06 * (1 - Math.sqrt(d) / maxDist)})`;
                     pCtx.lineWidth = 0.5;
                     pCtx.stroke();
                 }
@@ -150,27 +147,120 @@
     animateDots();
 
     window.addEventListener('resize', () => {
-        resizeSmoke();
-        initSmoke();
         resizeParticles();
         initDots();
     });
 
-    /* ------- CARD 3D TILT ------- */
+    /* ------- CARD 3D TILT + PARALLAX ------- */
     const card = document.getElementById('card');
-    if (card && window.matchMedia('(pointer: fine)').matches) {
+    const parallaxLayers = card ? card.querySelectorAll('[data-depth]') : [];
+
+    if (card && !isTouch) {
         card.addEventListener('mousemove', e => {
             const r = card.getBoundingClientRect();
             const x = (e.clientX - r.left) / r.width;
             const y = (e.clientY - r.top) / r.height;
-            const rx = (y - 0.5) * -8;
-            const ry = (x - 0.5) * 8;
-            card.style.transform = `perspective(800px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.015)`;
+            const rx = (y - 0.5) * -6;
+            const ry = (x - 0.5) * 6;
+
+            card.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.01)`;
+
+            // Parallax inner elements
+            parallaxLayers.forEach(layer => {
+                const depth = parseFloat(layer.dataset.depth) || 0;
+                const moveX = (x - 0.5) * 20 * depth;
+                const moveY = (y - 0.5) * 20 * depth;
+                layer.style.transform = `translate(${moveX}px, ${moveY}px)`;
+            });
         });
+
         card.addEventListener('mouseleave', () => {
+            card.style.transition = 'transform 0.7s cubic-bezier(0.34,1.56,0.64,1)';
+            card.style.transform = 'perspective(900px) rotateX(0) rotateY(0) scale(1)';
+
+            parallaxLayers.forEach(layer => {
+                layer.style.transition = 'transform 0.7s cubic-bezier(0.34,1.56,0.64,1)';
+                layer.style.transform = 'translate(0, 0)';
+            });
+
+            setTimeout(() => {
+                card.style.transition = '';
+                parallaxLayers.forEach(l => (l.style.transition = ''));
+            }, 700);
+        });
+    }
+
+    /* ------- TOUCH TILT (mobile) ------- */
+    if (card && isTouch) {
+        let touching = false;
+
+        card.addEventListener('touchstart', e => {
+            touching = true;
+            handleTouch(e);
+        }, { passive: true });
+
+        card.addEventListener('touchmove', e => {
+            if (touching) handleTouch(e);
+        }, { passive: true });
+
+        card.addEventListener('touchend', () => {
+            touching = false;
             card.style.transition = 'transform 0.6s cubic-bezier(0.34,1.56,0.64,1)';
-            card.style.transform = 'perspective(800px) rotateX(0) rotateY(0) scale(1)';
+            card.style.transform = 'perspective(900px) rotateX(0) rotateY(0) scale(1)';
             setTimeout(() => (card.style.transition = ''), 600);
+        });
+
+        function handleTouch(e) {
+            const t = e.touches[0];
+            const r = card.getBoundingClientRect();
+            const x = (t.clientX - r.left) / r.width;
+            const y = (t.clientY - r.top) / r.height;
+            const rx = (y - 0.5) * -4;
+            const ry = (x - 0.5) * 4;
+            card.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.01)`;
+        }
+    }
+
+    /* ------- CLICK RIPPLE ------- */
+    const rippleContainer = document.getElementById('rippleContainer');
+    if (card && rippleContainer) {
+        card.addEventListener('click', e => {
+            const r = card.getBoundingClientRect();
+            const x = e.clientX - r.left;
+            const y = e.clientY - r.top;
+            const size = Math.max(r.width, r.height);
+
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            ripple.style.width = size + 'px';
+            ripple.style.height = size + 'px';
+            ripple.style.left = (x - size / 2) + 'px';
+            ripple.style.top = (y - size / 2) + 'px';
+
+            rippleContainer.appendChild(ripple);
+            ripple.addEventListener('animationend', () => ripple.remove());
+        });
+    }
+
+    /* ------- MAGNETIC BUTTONS ------- */
+    const magneticEls = document.querySelectorAll('[data-magnetic]');
+
+    if (!isTouch) {
+        magneticEls.forEach(el => {
+            el.addEventListener('mousemove', e => {
+                const r = el.getBoundingClientRect();
+                const cx = r.left + r.width / 2;
+                const cy = r.top + r.height / 2;
+                const dx = (e.clientX - cx) * 0.2;
+                const dy = (e.clientY - cy) * 0.2;
+                el.style.transform = `translate(${dx}px, ${dy}px)`;
+            });
+
+            el.addEventListener('mouseleave', () => {
+                el.style.transition = 'transform 0.5s cubic-bezier(0.34,1.56,0.64,1)';
+                el.style.transform = 'translate(0, 0)';
+                setTimeout(() => (el.style.transition = ''), 500);
+            });
         });
     }
 
@@ -192,6 +282,17 @@
         });
     });
 
+    /* ------- NAME GLITCH ------- */
+    const nameText = document.querySelector('.name__text');
+    if (nameText && !isTouch) {
+        let glitchTimeout;
+        nameText.addEventListener('mouseenter', () => {
+            nameText.classList.add('is-glitching');
+            clearTimeout(glitchTimeout);
+            glitchTimeout = setTimeout(() => nameText.classList.remove('is-glitching'), 300);
+        });
+    }
+
     /* ------- EMAIL COPY ------- */
     const emailBtn = document.getElementById('btn-email');
     if (emailBtn) {
@@ -209,9 +310,7 @@
         });
     }
 
-    /* ------- ANIMATED BORDER ANGLE (fallback for browsers without @property) ------- */
-    // The CSS @property handles this natively in Chrome/Edge.
-    // For Firefox fallback, we animate via JS:
+    /* ------- BORDER ANGLE FALLBACK (Firefox) ------- */
     if (!CSS.supports || !CSS.supports('syntax', '"<angle>"')) {
         let angle = 0;
         const borderEl = document.querySelector('.card-border');
@@ -219,16 +318,15 @@
         const avatarGlow = document.querySelector('.avatar-glow');
 
         function animateBorder() {
-            angle = (angle + 0.9) % 360;
-            const grad = `conic-gradient(from ${angle}deg, hsl(260,80%,60%), hsl(210,90%,60%), hsl(170,80%,50%), hsl(320,80%,55%), hsl(40,90%,55%), hsl(260,80%,60%))`;
-            const avatarGrad = `conic-gradient(from ${angle}deg, hsl(260,80%,60%), hsl(320,80%,55%), hsl(210,90%,60%), hsl(260,80%,60%))`;
+            angle = (angle + 0.7) % 360;
+            const grad = `conic-gradient(from ${angle}deg, hsl(260,75%,55%), hsl(220,85%,55%), hsl(260,75%,55%))`;
 
             if (borderEl) {
                 borderEl.style.background = grad;
                 borderEl.style.setProperty('--border-angle', angle + 'deg');
             }
-            if (avatarRing) avatarRing.style.background = avatarGrad;
-            if (avatarGlow) avatarGlow.style.background = avatarGrad;
+            if (avatarRing) avatarRing.style.background = grad;
+            if (avatarGlow) avatarGlow.style.background = grad;
 
             requestAnimationFrame(animateBorder);
         }
