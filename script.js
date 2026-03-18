@@ -168,8 +168,14 @@
             const rect = card.getBoundingClientRect();
             const x = (e.clientX - rect.left) / rect.width;
             const y = (e.clientY - rect.top) / rect.height;
-            const rotX = (y - .5) * -7;
-            const rotY = (x - .5) * 7;
+
+            // Edge damping — reduce effect near corners
+            const edgeX = 1 - Math.pow(Math.abs(x - .5) * 2, 2) * .6;
+            const edgeY = 1 - Math.pow(Math.abs(y - .5) * 2, 2) * .6;
+            const damp = Math.min(edgeX, edgeY);
+
+            const rotX = (y - .5) * -4 * damp;
+            const rotY = (x - .5) * 4 * damp;
 
             cardWrap.style.transform = `perspective(900px) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
 
@@ -179,10 +185,10 @@
                 spotlight.style.setProperty('--sy', (y * 100) + '%');
             }
 
-            // Inner parallax
+            // Inner parallax (damped at edges)
             depthEls.forEach(el => {
                 const d = parseFloat(el.dataset.depth);
-                el.style.transform = `translate(${(x - .5) * 22 * d}px, ${(y - .5) * 22 * d}px)`;
+                el.style.transform = `translate(${(x - .5) * 12 * d * damp}px, ${(y - .5) * 12 * d * damp}px)`;
             });
         });
 
@@ -303,8 +309,6 @@
         } else {
             nameEl.addEventListener('touchstart', scramble, { passive: true });
         }
-        // Also scramble on load
-        setTimeout(scramble, 1400);
     }
 
     /* ---------- EMAIL COPY ---------- */

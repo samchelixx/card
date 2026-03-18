@@ -8,7 +8,7 @@
 
 :root {
     --bg: #06060b;
-    --card: rgba(12,12,20,.68);
+    --card: rgba(12,12,20,.35);
     --border: rgba(255,255,255,.05);
     --accent: #7c6aef;
     --accent-l: #a899ff;
@@ -112,19 +112,21 @@ html, body {
     background: radial-gradient(circle, hsl(260,70%,42%) 0%, transparent 70%);
     top:-15%; right:-10%;
     animation: blob1 22s ease-in-out infinite;
+    opacity:.5;
 }
 .mesh-bg__blob--2 {
     width:45vw; height:45vw; max-width:500px; max-height:500px;
     background: radial-gradient(circle, hsl(215,80%,42%) 0%, transparent 70%);
     bottom:-15%; left:-8%;
     animation: blob2 26s ease-in-out infinite;
+    opacity:.5;
 }
 .mesh-bg__blob--3 {
     width:32vw; height:32vw; max-width:360px; max-height:360px;
     background: radial-gradient(circle, hsl(280,60%,38%) 0%, transparent 70%);
     top:45%; left:50%;
     animation: blob3 18s ease-in-out infinite;
-    opacity:.5;
+    opacity:.3;
 }
 @keyframes blob1 {
     0%,100% { transform:translate(0,0) scale(1); }
@@ -174,17 +176,7 @@ html, body {
 }
 @keyframes spin { to { --a:360deg; } }
 
-/* Glow behind border */
-.card-wrap::before {
-    content:'';
-    position:absolute; inset:-6px;
-    border-radius:inherit;
-    background: conic-gradient(from var(--a), var(--accent), hsl(220,80%,55%), var(--accent));
-    filter:blur(22px);
-    opacity:.3;
-    z-index:-1;
-    animation: spin 6s linear infinite;
-}
+/* No outer glow — clean edges */
 
 /* === CARD === */
 .card {
@@ -276,17 +268,9 @@ html, body {
 }
 .avatar:hover .avatar__ring {
     transform:scale(1.1);
-    box-shadow: 0 0 50px rgba(124,106,239,.25);
 }
-.avatar__glow {
-    position:absolute; inset:-20px;
-    border-radius:50%;
-    background: radial-gradient(circle, rgba(124,106,239,.25) 0%, transparent 70%);
-    animation: pulse 4s ease-in-out infinite;
-    z-index:-1;
-    transition: opacity .4s;
-}
-.avatar:hover .avatar__glow { opacity:1 !important; }
+.avatar__glow { display:none; }
+
 @keyframes pulse {
     0%,100% { opacity:.2; transform:scale(1); }
     50%     { opacity:.5; transform:scale(1.08); }
@@ -339,17 +323,8 @@ html, body {
     0%,100% { background-position:0% 50%; }
     50%     { background-position:100% 50%; }
 }
-/* glow */
-.hero__name-text::after {
-    content:attr(data-value);
-    position:absolute; inset:0;
-    background:inherit;
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-    background-clip:text;
-    filter:blur(16px); opacity:.35;
-    z-index:-1;
-}
+/* glow removed — clean text */
+.hero__name-text::after { display:none; }
 /* scramble: text uses data-value + JS, the CSS just needs the base */
 
 /* === BADGES === */
@@ -370,13 +345,13 @@ html, body {
     background:var(--accent-d);
     border:1px solid rgba(124,106,239,.18);
 }
-.badge--primary:hover { box-shadow:0 4px 14px rgba(124,106,239,.12); }
+.badge--primary:hover { transform:translateY(-2px); }
 .badge--success {
     color:#00e676;
     background:rgba(0,230,118,.05);
     border:1px solid rgba(0,230,118,.12);
 }
-.badge--success:hover { box-shadow:0 4px 14px rgba(0,230,118,.08); }
+.badge--success:hover { transform:translateY(-2px); }
 .badge__dot {
     width:4px; height:4px; border-radius:50%;
 }
@@ -500,7 +475,6 @@ html, body {
 .link__icon svg { width:16px; height:16px; }
 .link:hover .link__icon {
     transform:scale(1.15) rotate(-6deg);
-    box-shadow:0 0 16px rgba(var(--lc,124,106,239),.15);
 }
 /* per-link icon colors */
 #link-github:hover .link__icon  { color:#fff;    background:rgba(255,255,255,.08); }
